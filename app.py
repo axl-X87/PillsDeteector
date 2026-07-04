@@ -8,7 +8,6 @@ import numpy as np
 import webbrowser
 import threading
 
-# ===== НАСТРОЙКИ ДЛЯ WINDOWS =====
 BASE_DIR = r'L:\NeuroApp'
 TEMPLATE_DIR = r'L:\NeuroApp\templates'
 UPLOAD_FOLDER = os.path.join(BASE_DIR, 'static', 'results')
@@ -19,7 +18,6 @@ app = Flask(__name__, template_folder=TEMPLATE_DIR)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['SECRET_KEY'] = 'tablet-counter-secret-key'
 
-# ===== ИНИЦИАЛИЗАЦИЯ ДЕТЕКТОРА =====
 detector = TabletDetector()
 
 # ===== БАЗА ДАННЫХ SQLITE =====
@@ -42,7 +40,6 @@ def init_db():
 
 init_db()
 
-# ===== МАРШРУТЫ =====
 @app.route('/')
 def index():
     return render_template('index.html')
@@ -56,28 +53,23 @@ def process_image():
     if file.filename == '':
         return jsonify({'error': 'Пустое имя файла'}), 400
 
-    # Проверяем расширение
     allowed_extensions = {'.jpg', '.jpeg', '.png', '.bmp', '.tiff'}
     ext = os.path.splitext(file.filename)[1].lower()
     if ext not in allowed_extensions:
         return jsonify({'error': 'Разрешены только изображения (jpg, png, bmp)'}), 400
 
-    # Сохраняем оригинал
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
     original_filename = f'original_{timestamp}.jpg'
     temp_path = os.path.join(UPLOAD_FOLDER, original_filename)
     file.save(temp_path)
 
     try:
-        # Запускаем детекцию (теперь возвращает 3 значения)
         result_img, tablet_count, empty_count = detector.detect(temp_path)
 
-        # Сохраняем результат
         result_filename = f'result_{timestamp}.jpg'
         result_path = os.path.join(UPLOAD_FOLDER, result_filename)
         cv2.imwrite(result_path, result_img)
-
-        # Записываем в историю (теперь два числа)
+        
         conn = sqlite3.connect(DB_PATH)
         cursor = conn.cursor()
         cursor.execute(
@@ -87,7 +79,6 @@ def process_image():
         conn.commit()
         conn.close()
 
-        # Возвращаем JSON с обоими числами
         return jsonify({
             'result_image': f'/static/results/{result_filename}',
             'tablet_count': tablet_count,
@@ -121,7 +112,6 @@ def export_pdf():
     from reportlab.pdfbase import pdfmetrics
     from reportlab.pdfbase.ttfonts import TTFont
 
-    # Регистрируем шрифт (укажите правильный путь к .ttf файлу)
     pdfmetrics.registerFont(TTFont('Times-Roman', 'C:/Windows/Fonts/times.ttf'))
     
     
@@ -211,7 +201,6 @@ def export_excel():
         'Content-Disposition': 'attachment; filename=report.xlsx'
     }
 
-# ===== ФУНКЦИЯ АВТОМАТИЧЕСКОГО ОТКРЫТИЯ БРАУЗЕРА =====
 def open_browser():
     import time
     time.sleep(1.5)

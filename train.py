@@ -9,8 +9,8 @@ def train_model():
     results = model.train(
         data='L:/NeuroApp/tablets_dataset/data.yaml',
         epochs=50,
-        imgsz=1024,           # можно 800 или 1024
-        batch=32,            # для 640 — 32, для 800 — 16, для 1024 — 8
+        imgsz=1024,
+        batch=32,
         device=0,
         workers=8,
         project='L:/NeuroApp/runs',

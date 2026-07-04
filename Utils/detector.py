@@ -4,7 +4,6 @@ import os
 
 class TabletDetector:
     def __init__(self):
-        # Путь к лучшей обученной модели (после fine-tuning)
         model_path = r'L:\NeuroApp\runs\tablet_finetune_5070Ti\weights\best.pt'
         
         if not os.path.exists(model_path):
@@ -18,10 +17,8 @@ class TabletDetector:
         img = cv2.imread(image_path)
         results = self.model(img)
         
-        # Получаем изображение с отрисованными рамками
         result_img = results[0].plot()
         
-        # Считаем отдельно таблетки (класс 0) и пустые ячейки (класс 1)
         tablet_count = 0
         empty_count = 0
         
@@ -32,5 +29,4 @@ class TabletDetector:
             elif cls == 1:
                 empty_count += 1
         
-        # Возвращаем картинку, количество таблеток и количество пустых ячеек
         return result_img, tablet_count, empty_count
