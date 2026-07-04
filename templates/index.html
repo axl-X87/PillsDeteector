@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Контроль комплектации блистеров</title>
+    <style>
+        body { font-family: 'Segoe UI', Arial, sans-serif; max-width: 1000px; margin: 0 auto; padding: 20px; background: #f0f2f5; }
+        .container { background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        h1 { text-align: center; color: #1a1a2e; font-size: 28px; }
+        .upload-section { display: flex; flex-direction: column; gap: 15px; margin-bottom: 25px; }
+        .file-input-wrapper { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+        .btn { padding: 12px 30px; background: #007bff; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 16px; transition: 0.2s; }
+        .btn:hover { background: #0056b3; }
+        .btn-secondary { background: #6c757d; }
+        .btn-success { background: #28a745; }
+        .btn:disabled { opacity: 0.6; cursor: not-allowed; }
+        #resultImage { max-width: 100%; max-height: 600px; border: 1px solid #ddd; margin-top: 15px; display: none; border-radius: 8px; }
+        #stats { margin-top: 15px; font-size: 18px; font-weight: bold; text-align: center; }
+        #stats .tablet { color: #28a745; }
+        #stats .empty { color: #dc3545; }
+        #stats .total { color: #007bff; }
+        .history { margin-top: 40px; }
+        .history h2 { border-bottom: 2px solid #007bff; padding-bottom: 10px; }
+        .history table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 14px; }
+        .history th, .history td { border: 1px solid #dee2e6; padding: 10px; text-align: left; }
+        .history th { background: #007bff; color: white; }
+        .history tr:nth-child(even) { background: #f8f9fa; }
+        .export-btns { display: flex; gap: 15px; margin-top: 15px; flex-wrap: wrap; }
+        .error { color: #dc3545; margin-top: 10px; font-weight: bold; }
+        .loading { display: none; color: #007bff; font-weight: bold; margin-top: 10px; }
+        .status { margin-top: 10px; color: #28a745; }
+        input[type="file"] { padding: 10px; border: 2px dashed #dee2e6; border-radius: 6px; width: 100%; cursor: pointer; }
+        input[type="file"]:hover { border-color: #007bff; }
+        @media (max-width: 600px) { .export-btns { flex-direction: column; } }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>💊 Контроль комплектации блистеров</h1>
+        
+        <div class="upload-section">
+            <div class="file-input-wrapper">
+                <input type="file" id="imageInput" accept="image/*">
+                <button class="btn" onclick="processImage()">🚀 Запустить анализ</button>
+            </div>
+            <div id="error" class="error"></div>
+            <div id="loading" class="loading">⏳ Идёт обработка, пожалуйста подождите...</div>
+        </div>
+
+        <div id="stats"></div>
+        <img id="resultImage" alt="Результат обработки">
+
+        <div class="history">
+            <h2>📊 История проверок</h2>
+            <div class="export-btns">
+                <a href="/export/pdf" class="btn btn-secondary" target="_blank">📄 Скачать PDF</a>
+                <a href="/export/excel" class="btn btn-success" target="_blank">📊 Скачать Excel</a>
+                <button class="btn btn-secondary" onclick="refreshHistory()">🔄 Обновить историю</button>
+            </div>
+            <table id="historyTable">
+                <thead>
+                    <tr><th>№</th><th>Дата и время</th><th>Файл</th><th>Таблеток</th><th>Пустых</th><th>Всего</th></tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+            <div id="historyStatus" class="status"></div>
+        </div>
+    </div>
+
+    <script>
+        async function processImage() {
+            const fileInput = document.getElementById('imageInput');
+            const errorDiv = document.getElementById('error');
+            const statsDiv = document.getElementById('stats');
+            const img = document.getElementById('resultImage');
+            const loadingDiv = document.getElementById('loading');
+            
+            errorDiv.textContent = '';
+            statsDiv.innerHTML = '';
+            img.style.display = 'none';
+            loadingDiv.style.display = 'block';
+
+            if (!fileInput.files.length) {
+                errorDiv.textContent = '❌ Пожалуйста, выберите изображение блистера.';
+                loadingDiv.style.display = 'none';
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('image', fileInput.files[0]);
+
+            try {
+                const response = await fetch('/process', { method: 'POST', body: formData });
+
+                if (!response.ok) {
+                    const data = await response.json();
+                    errorDiv.textContent = '❌ ' + (data.error || 'Ошибка при обработке.');
+                    loadingDiv.style.display = 'none';
+                    return;
+                }
+
+                const data = await response.json();
+                img.src = data.result_image + '?' + Date.now();
+                img.style.display = 'block';
+                
+                statsDiv.innerHTML = `
+                    <div>✅ Таблеток: <span class="tablet">${data.tablet_count}</span></div>
+                    <div>⬜ Пустых ячеек: <span class="empty">${data.empty_count}</span></div>
+                    <div>📦 Всего ячеек: <span class="total">${data.total_cells}</span></div>
+                `;
+                
+                loadingDiv.style.display = 'none';
+                refreshHistory();
+            } catch (err) {
+                errorDiv.textContent = '❌ Ошибка соединения с сервером.';
+                loadingDiv.style.display = 'none';
+                console.error(err);
+            }
+        }
+
+        async function refreshHistory() {
+            const statusDiv = document.getElementById('historyStatus');
+            statusDiv.textContent = '⏳ Загрузка истории...';
+            
+            try {
+                const response = await fetch('/history');
+                const data = await response.json();
+                const tbody = document.querySelector('#historyTable tbody');
+                tbody.innerHTML = '';
+                
+                if (data.length === 0) {
+                    statusDiv.textContent = '📭 История пока пуста. Загрузите первое изображение!';
+                    return;
+                }
+                
+                data.forEach((row, index) => {
+                    const tr = document.createElement('tr');
+                    const date = new Date(row.timestamp);
+                    const dateStr = date.toLocaleDateString('ru-RU') + ' ' + date.toLocaleTimeString('ru-RU');
+                    tr.innerHTML = `
+                        <td>${index + 1}</td>
+                        <td>${dateStr}</td>
+                        <td>${row.filename}</td>
+                        <td><strong>${row.tablet_count}</strong></td>
+                        <td><strong>${row.empty_count}</strong></td>
+                        <td><strong>${row.tablet_count + row.empty_count}</strong></td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+                
+                statusDiv.textContent = `✅ Загружено записей: ${data.length}`;
+            } catch (err) {
+                statusDiv.textContent = '❌ Ошибка загрузки истории.';
+                console.error(err);
+            }
+        }
+
+        window.onload = refreshHistory;
+    </script>
+</body>
+</html>
